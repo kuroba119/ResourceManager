@@ -11,7 +11,7 @@ var Resource = new keystone.List('Resource', {
 });
 
 Resource.add({
-	resourceName: { type: Types.Name, initial: true, required: true, index: true },
+	resourceName: { type: String, initial: true, required: true, index: true },
 	email: { type: String, initial: true, required: false, restSelected: false },
 	department: { type: String, initial: true, required: false, restSelected: false },
 	jobTitle: { type: String, initial: true, required: false, restSelected: false },

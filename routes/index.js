@@ -20,18 +20,57 @@
 
 var keystone = require('keystone');
 var importRoutes = keystone.importer(__dirname);
+var passport = require('passport');
+var passportJWT = require('passport-jwt');
+var ExtractJwt = passportJWT.ExtractJwt;
+var JwtStrategy = passportJWT.Strategy;
+var jwtOptions = {};
+var jwt = require('jsonwebtoken');
 
+jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
+jwtOptions.secretOrKey = 'wowwow';
 // Import Route Controllers
 var routes = {
 	api: importRoutes('./api'),
 };
 
-
+// lets create our strategy for web token
+var strategy = new JwtStrategy(jwtOptions, function (jwt_payload, next) {
+	console.log('payload received', jwt_payload);
+	var user = routes.api.userApiAuth.get({ id: jwt_payload.id });
+	if (user) {
+		next(null, user);
+	} else {
+		next(null, false);
+	}
+});
+// use the strategy
+passport.use(strategy);
 // Setup Route Bindings
 exports = module.exports = function (app) {
 	// API
-	
-	
+	app.use(passport.initialize());
+	// login route
+	app.post('/login', function (req, res, next) {
+		const { name, password } = req.body;
+		if (name && password) {
+			// we get the user with the name and save the resolved promise
+			var user = routes.api.userApiAuth.get({ name });
+			if (!user) {
+				res.status(401).json({ msg: 'No such user found', user });
+			}
+			if (user.password === password) {
+				// from now on we’ll identify the user by the id and the id is
+// the only personalized value that goes into our token
+				var payload = { id: user.id };
+				var token = jwt.sign(payload, jwtOptions.secretOrKey);
+				res.json({ msg: 'ok', token: token });
+			} else {
+				res.status(401).json({ msg: 'Password is incorrect' });
+			}
+		}
+	});
+	app.get('/api/userApiAuth', routes.api.userApiAuth.get);
 	// api resource
 	app.get('/', routes.api.index.index);
 	app.get('/api/resource', routes.api.resource.list);
@@ -39,6 +78,12 @@ exports = module.exports = function (app) {
 	app.post('/api/resource/create', routes.api.resource.create);
 	app.put('/api/resource/:id', routes.api.resource.update);
 	app.delete('/api/resource/:id', routes.api.resource.remove);
+	// api filter resource
+	app.get('/api/filter/resource/name/:resourceName', routes.api.filterResource.filterByName);
+	app.get('/api/filter/resource/email/:email', routes.api.filterResource.filterByEmail);
+	app.get('/api/filter/resource/department/:department', routes.api.filterResource.filterByDepartment);
+	app.get('/api/filter/resource/jobTitle/:jobTitle', routes.api.filterResource.filterByJobTitle);
+	app.get('/api/filter/resource/skill/:skill', routes.api.filterResource.filterBySkill);
 	// api project
 	app.get('/api/project', routes.api.project.list);
 	app.get('/api/project/:id', routes.api.project.get);
